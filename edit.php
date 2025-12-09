@@ -1,130 +1,113 @@
 <?php
 include 'connect.php';
 include 'auth.php';
-
 require_admin();
 
-// *************************************************************
-// BẢO VỆ TRANG: NẾU CHƯA ĐĂNG NHẬP, CHUYỂN HƯỚNG VỀ LOGIN
-// *************************************************************
-if (!isset($_SESSION["loggedin"]) || $_SESSION["loggedin"] !== true) {
-    header("location: login.php");
-    exit;
-}
-// *************************************************************
+// Lấy ID sản phẩm
+$pid = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($pid == 0) { header("Location: index.php"); exit; }
 
-$id = $_GET['id'] ?? null; // Lấy ID sản phẩm từ URL
-$product = null;
+$msg = "";
 
-// Xử lý khi người dùng nhấn nút UPDATE
-if (isset($_POST['update'])) {
-    $id = $_POST['id'];
-    $name = $_POST['name'] ?? '';
-    $description = $_POST['description'] ?? '';
-    $price = $_POST['price'] ?? 0;
-    $image_path = $_POST['old_image'] ?? ''; // Giữ đường dẫn ảnh cũ mặc định
+// 1. CẬP NHẬT THÔNG TIN CHUNG
+if (isset($_POST['update_product'])) {
+    $name = mysqli_real_escape_string($link, $_POST['name']);
+    $desc = mysqli_real_escape_string($link, $_POST['description']);
+    $base_price = (float)$_POST['base_price'];
+    $img_sql = "";
 
-    // Kiểm tra xem có file ảnh mới được upload lên không
-    if (isset($_FILES["image"]) && $_FILES["image"]["size"] > 0) {
-        // 1. Xóa ảnh cũ (nếu có)
-        if (!empty($image_path) && file_exists($image_path)) {
-            unlink($image_path);
-        }
-        
-        // 2. Tải ảnh mới lên
-        $target_dir = "uploads/";
-        $image_name = time() . '_' . basename($_FILES["image"]["name"]);
-        $target_file = $target_dir . $image_name;
-        if (move_uploaded_file($_FILES["image"]["tmp_name"], $target_file)) {
-            $image_path = $target_file; // Cập nhật đường dẫn ảnh mới
-        } else {
-             // Xử lý lỗi upload nếu cần
-        }
+    // Upload ảnh mới nếu có
+    if (!empty($_FILES['image']['name'])) {
+        $target = "uploads/" . time() . "_" . basename($_FILES['image']['name']);
+        move_uploaded_file($_FILES['image']['tmp_name'], $target);
+        $img_sql = ", image_url='$target'";
     }
 
-    // Cập nhật dữ liệu vào DB
-    $sql_update = "UPDATE products SET name = ?, description = ?, price = ?, image_url = ? WHERE id = ?";
-    $stmt = mysqli_prepare($link, $sql_update);
-    // Chuỗi định dạng: s=string, d=double/float, s=string, i=integer
-    mysqli_stmt_bind_param($stmt, "ssdsi", $name, $description, $price, $image_path, $id);
-    mysqli_stmt_execute($stmt);
-
-    // Cập nhật xong thì quay về trang chủ
-    header("Location: index.php");
-    exit();
-} 
-
-// Phần code hiển thị form
-if ($id && is_numeric($id)) {
-    $sql_select = "SELECT id, name, description, price, image_url FROM products WHERE id = ?";
-    $stmt = mysqli_prepare($link, $sql_select);
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-
-    if ($result && mysqli_num_rows($result) == 1) {
-        $product = mysqli_fetch_assoc($result);
-    } else {
-        // Không tìm thấy sản phẩm, chuyển hướng
-        header("Location: index.php");
-        exit();
-    }
-} else {
-    // Không có ID, chuyển hướng
-    header("Location: index.php");
-    exit();
+    $sql = "UPDATE products SET name='$name', description='$desc', base_price=$base_price $img_sql WHERE product_id=$pid";
+    if(mysqli_query($link, $sql)) $msg = "<div class='alert alert-success'>Cập nhật thành công!</div>";
+    else $msg = "<div class='alert alert-danger'>Lỗi: ".mysqli_error($link)."</div>";
 }
+
+// 2. THÊM BIẾN THỂ MỚI
+if (isset($_POST['add_variant'])) {
+    $vname = $_POST['new_vname'];
+    $vprice = $_POST['new_vprice'];
+    $vstock = $_POST['new_vstock'];
+    mysqli_query($link, "INSERT INTO product_variants (product_id, variant_name, price, stock) VALUES ($pid, '$vname', $vprice, $vstock)");
+}
+
+// 3. CẬP NHẬT BIẾN THỂ CŨ
+if (isset($_POST['save_variant'])) {
+    $vid = $_POST['vid'];
+    $vname = $_POST['vname'];
+    $vprice = $_POST['vprice'];
+    $vstock = $_POST['vstock'];
+    mysqli_query($link, "UPDATE product_variants SET variant_name='$vname', price=$vprice, stock=$vstock WHERE variant_id=$vid");
+}
+
+// 4. LẤY DỮ LIỆU HIỂN THỊ
+$prod = mysqli_fetch_assoc(mysqli_query($link, "SELECT * FROM products WHERE product_id=$pid"));
+$vars = mysqli_query($link, "SELECT * FROM product_variants WHERE product_id=$pid");
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Edit Product</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container mt-4">
-        <div class="card">
-            <div class="card-header">
-                <h3>Edit Product: <?php echo htmlspecialchars($product['name']); ?></h3>
+<head><title>Sửa sản phẩm</title><link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"></head>
+<body class="container mt-5 mb-5">
+    <div class="d-flex justify-content-between">
+        <h2>Sửa: <?php echo htmlspecialchars($prod['name']); ?></h2>
+        <a href="index.php" class="btn btn-secondary">Về trang chủ</a>
+    </div>
+    <?php echo $msg; ?>
+
+    <div class="card p-3 mb-4 bg-light">
+        <h4>1. Thông tin chung</h4>
+        <form method="post" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col-md-6">
+                    <label>Tên SP</label><input type="text" name="name" class="form-control" value="<?php echo $prod['name']; ?>" required>
+                    <label>Giá gốc</label><input type="text" name="base_price" class="form-control" value="<?php echo $prod['base_price']; ?>" required>
+                </div>
+                <div class="col-md-6">
+                    <label>Mô tả</label><textarea name="description" class="form-control"><?php echo $prod['description']; ?></textarea>
+                    <label>Ảnh mới</label><input type="file" name="image" class="form-control-file">
+                </div>
             </div>
-            <div class="card-body">
-                <form action="edit.php" method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="id" value="<?php echo $product['id']; ?>">
-                    
-                    <div class="form-group">
-                        <label>Product Name</label>
-                        <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($product['name']); ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description" class="form-control"><?php echo htmlspecialchars($product['description']); ?></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Price</label>
-                        <input type="number" name="price" step="0.01" class="form-control" value="<?php echo $product['price']; ?>" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Current Image</label><br>
-                        <?php if(!empty($product['image_url']) && file_exists($product['image_url'])): ?>
-                            <img src="<?php echo $product['image_url']; ?>" style="width: 150px;">
-                        <?php else: ?>
-                            <p>No current image.</p>
-                        <?php endif; ?>
-                        <input type="hidden" name="old_image" value="<?php echo htmlspecialchars($product['image_url']); ?>">
-                    </div>
-                    <div class="form-group">
-                        <label>Upload New Image (leave blank to keep current image)</label>
-                        <input type="file" name="image" class="form-control-file">
-                    </div>
-                    
-                    <button type="submit" name="update" class="btn btn-primary">Update Product</button>
-                    <a href="index.php" class="btn btn-secondary">Cancel</a>
-                </form>
-            </div>
-        </div>
+            <button type="submit" name="update_product" class="btn btn-primary mt-3">Lưu Thay Đổi</button>
+        </form>
+    </div>
+
+    <div class="card p-3">
+        <h4>2. Quản lý Biến thể (Vị/Size)</h4>
+        <table class="table table-bordered">
+            <thead><tr><th>Tên biến thể</th><th>Giá bán</th><th>Kho</th><th>Hành động</th></tr></thead>
+            <tbody>
+                <tr class="table-warning">
+                    <form method="post">
+                        <td><input type="text" name="new_vname" placeholder="Thêm mới (VD: 10Lbs)" class="form-control form-control-sm" required></td>
+                        <td><input type="number" name="new_vprice" placeholder="Giá" class="form-control form-control-sm" required></td>
+                        <td><input type="number" name="new_vstock" placeholder="Kho" class="form-control form-control-sm" value="100"></td>
+                        <td><button type="submit" name="add_variant" class="btn btn-sm btn-success">Thêm</button></td>
+                    </form>
+                </tr>
+                
+                <?php while($v = mysqli_fetch_assoc($vars)): ?>
+                <tr>
+                    <form method="post">
+                        <input type="hidden" name="vid" value="<?php echo $v['variant_id']; ?>">
+                        <td><input type="text" name="vname" value="<?php echo $v['variant_name']; ?>" class="form-control form-control-sm"></td>
+                        <td><input type="text" name="vprice" value="<?php echo $v['price']; ?>" class="form-control form-control-sm"></td>
+                        <td><input type="text" name="vstock" value="<?php echo $v['stock']; ?>" class="form-control form-control-sm"></td>
+                        <td>
+                            <button type="submit" name="save_variant" class="btn btn-primary btn-sm">Lưu</button>
+                            <a href="delete.php?type=variant&id=<?php echo $v['variant_id']; ?>&pid=<?php echo $pid; ?>" 
+                               class="btn btn-danger btn-sm" onclick="return confirm('Xóa biến thể này?')">Xóa</a>
+                        </td>
+                    </form>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
