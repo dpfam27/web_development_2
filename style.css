@@ -1,0 +1,108 @@
+/* Thiết lập cơ bản cho toàn bộ trang */
+body {
+    background-color: #f4f4f4; /* Màu nền xám nhạt */
+    color: #333;
+    font-family: 'Arial', sans-serif;
+}
+
+/* ------------------------------------------- */
+/* CSS RIÊNG CHO TRANG CHỦ (index.php) */
+/* ------------------------------------------- */
+
+/* Thêm hình nền cho trang chủ */
+/* Bạn có thể thay thế 'whey_background.jpg' bằng ảnh nền của bạn */
+body.home-page { 
+    background-image: url('hinh-nen-tet-dep-3-1024x525.jpg'); 
+    background-size: cover; /* Đảm bảo ảnh nền che phủ toàn bộ viewport */
+    background-attachment: fixed; /* Giữ ảnh nền cố định khi cuộn */
+    background-position: center center;
+}
+
+/* Làm mờ nền cho container chính để nội dung dễ đọc hơn trên ảnh nền */
+.container {
+    background-color: rgba(255, 255, 255, 0.95); /* Màu trắng hơi trong suốt */
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Đổ bóng nhẹ nhàng */
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+/* ------------------------------------------- */
+/* CSS CHO FORM ĐĂNG NHẬP/ĐĂNG KÝ (login/register.php) */
+/* ------------------------------------------- */
+.wrapper {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Đổ bóng nổi bật */
+    margin: 80px auto;
+}
+
+/* ------------------------------------------- */
+/* CSS CHO CARD SẢN PHẨM */
+/* ------------------------------------------- */
+.product-card {
+    transition: transform 0.3s, box-shadow 0.3s; /* Hiệu ứng chuyển động mượt mà */
+    border-radius: 12px;
+    border: 1px solid #ddd; /* Đường viền mỏng */
+    background-color: #fff;
+    overflow: hidden; /* Quan trọng để ảnh và bo góc hoạt động tốt */
+}
+
+/* Hiệu ứng khi di chuột qua card */
+.product-card:hover {
+    transform: translateY(-5px); /* Nâng card lên một chút */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15); /* Đổ bóng mạnh hơn */
+}
+
+.product-card .card-img-top {
+    width: 100%;
+    height: 220px; /* Tăng nhẹ chiều cao ảnh */
+    object-fit: cover;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.card-title {
+    font-weight: 700; /* Dùng font dày hơn */
+    color: #007bff; /* Màu chủ đạo */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 8px;
+}
+
+.description-text {
+    color: #6c757d;
+    font-size: 0.9em;
+    height: 40px; /* Giới hạn chiều cao cho mô tả */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-text.font-weight-bold {
+    color: #dc3545; /* Màu đỏ nổi bật cho giá */
+    font-size: 1.2em;
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+
+/* Nút Action trong card */
+.product-card .btn-sm {
+    padding: 5px 10px;
+    font-size: 0.85em;
+    border-radius: 5px;
+}
+
+/* Nút chính (Add New Product) */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
