@@ -1,47 +1,47 @@
 <?php
-// BƯỚC 1: KẾT NỐI DATABASE VÀ KHỞI ĐỘNG SESSION
-include 'connect.php'; 
+include 'connect.php';
+include 'auth.php'; // Chứa session_start
 
-// Nếu người dùng đã đăng nhập, chuyển hướng họ đi ngay lập tức
-if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"] === true) {
-    header("location: index.php");
-    exit;
-}
+// Nếu đã đăng nhập thì đá về trang chủ
+if (is_logged_in()) { header("Location: index.php"); exit; }
 
-$message = ""; // Khởi tạo biến lưu thông báo lỗi
+$msg = "";
 
-// BƯỚC 2: KIỂM TRA NGƯỜI DÙNG CÓ NHẤN NÚT 'login' KHÔNG
 if (isset($_POST['login'])) {
-    // Lấy dữ liệu từ form
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
+    $input = mysqli_real_escape_string($link, $_POST['username']); // Chấp nhận cả Username hoặc Email
+    $password_input = $_POST['password']; // Mật khẩu thô người dùng nhập
 
-    // Mã hóa mật khẩu bằng MD5
-    $hashed_password = md5($password); 
+    // 1. Tìm user trong database
+    $sql = "SELECT * FROM users WHERE username='$input' OR email='$input'";
+    $result = mysqli_query($link, $sql);
 
-    // CHUẨN BỊ CÂU LỆNH SQL (Lấy cả username để lưu vào session)
-    $username_db = mysqli_real_escape_string($link, $username); 
-    $query = "SELECT id, username, role FROM users WHERE username='$username_db' AND password='$hashed_password'";
-    
-    // THỰC THI TRUY VẤN
-    $result = mysqli_query($link, $query);
-
-    // BƯỚC 3: KIỂM TRA KẾT QUẢ
-    if ($result && mysqli_num_rows($result) == 1) {
+    if (mysqli_num_rows($result) === 1) {
         $row = mysqli_fetch_assoc($result);
-
-        // THIẾT LẬP SESSION ĐỂ GHI NHỚ TRẠNG THÁI ĐĂNG NHẬP
-        $_SESSION["loggedin"] = true;
-        $_SESSION["id"] = $row['id'];
-        $_SESSION["username"] = $row['username']; // Lưu tên người dùng
-        $_SESSION["role"] = $row['role']; // Lưu role vào session
         
-        // CHUYỂN HƯỚNG ĐẾN TRANG CHỦ
-        header("Location: index.php");
-        exit; 
+        // 2. KIỂM TRA MẬT KHẨU (BƯỚC QUAN TRỌNG)
+        // So sánh password nhập vào với hash trong DB
+        if (password_verify($password_input, $row['password_hash'])) {
+            
+            // Mật khẩu đúng -> Lưu Session
+            $_SESSION['user_id'] = $row['user_id'];
+            $_SESSION['username'] = $row['username'];
+            $_SESSION['role'] = $row['role'];
+
+            // Xử lý Cookie ghi nhớ (nếu bạn vẫn dùng code cookie cũ)
+            if (isset($_POST['remember'])) {
+                include_once 'cookie.php';
+                $token = bin2hex(random_bytes(32));
+                mysqli_query($link, "UPDATE users SET remember_token='$token' WHERE user_id=".$row['user_id']);
+                set_my_cookie('remember_token', $token, 30);
+            }
+
+            header("Location: index.php");
+            exit;
+        } else {
+            $msg = "Sai mật khẩu!";
+        }
     } else {
-        // Đăng nhập thất bại
-        $message = '<div class="alert alert-danger">Wrong info (Thông tin không đúng).</div>';
+        $msg = "Tài khoản không tồn tại!";
     }
 }
 ?>
@@ -49,33 +49,30 @@ if (isset($_POST['login'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Login Basic</title>
+    <title>Đăng nhập</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        .wrapper { width: 360px; padding: 20px; margin: 50px auto; border: 1px solid #ccc; border-radius: 5px; }
-    </style>
 </head>
-<body>
-    <div class="wrapper">
-        <h2 class="mb-4">Đăng Nhập Quản Trị</h2>
+<body class="container mt-5" style="max-width: 400px;">
+    <h3 class="text-center">Đăng Nhập</h3>
+    <?php if($msg) echo "<div class='alert alert-danger'>$msg</div>"; ?>
+    
+    <form method="post">
+        <div class="form-group">
+            <label>Username hoặc Email</label>
+            <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" name="password" class="form-control" required>
+        </div>
         
-        <?php echo $message; // Chỉ hiển thị khi có lỗi đăng nhập ?>
+        <div class="form-group form-check">
+            <input type="checkbox" name="remember" class="form-check-input" id="rem">
+            <label class="form-check-label" for="rem">Ghi nhớ đăng nhập</label>
+        </div>
 
-        <form action="login.php" method="post">
-            <div class="form-group">
-                <label>User name</label>
-                <input type="text" name="username" class="form-control" value="<?php echo htmlspecialchars($username ?? ''); ?>" required>
-            </div>    
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-            
-            <button type="submit" name="login" class="btn btn-primary btn-block">Login</button>
-
-            <p class="text-center mt-3">Chưa có tài khoản? <a href="register.php">Đăng ký ngay</a>.</p>
-        </form>
-    </div>    
+        <button type="submit" name="login" class="btn btn-primary btn-block">Đăng Nhập</button>
+        <p class="text-center mt-3"><a href="register.php">Đăng ký tài khoản mới</a></p>
+    </form>
 </body>
 </html>
