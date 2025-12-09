@@ -1,44 +1,32 @@
 <?php
 include 'connect.php'; 
 
-$message = ""; 
+$msg = ""; 
 
 if (isset($_POST['register'])) {
-    $username = mysqli_real_escape_string($link, trim($_POST['username'] ?? ''));
-    $password = $_POST['password'] ?? '';
+    // 1. Lấy dữ liệu và làm sạch
+    $username = mysqli_real_escape_string($link, $_POST['username']);
+    $email = mysqli_real_escape_string($link, $_POST['email']);
+    $password = $_POST['password'];
 
-    if (empty($username) || empty($password)) {
-        $message = '<div class="alert alert-danger">Vui lòng nhập Username và Password.</div>';
+    // 2. Kiểm tra user đã tồn tại chưa
+    $check = mysqli_query($link, "SELECT user_id FROM users WHERE username='$username' OR email='$email'");
+    
+    if (mysqli_num_rows($check) > 0) {
+        $msg = "<div class='alert alert-danger'>Username hoặc Email đã tồn tại!</div>";
     } else {
-        // Kiểm tra tên người dùng đã tồn tại
-        $sql_check = "SELECT id FROM users WHERE username = '$username'";
-        $result_check = mysqli_query($link, $sql_check);
+        // 3. MÃ HÓA MẬT KHẨU (QUAN TRỌNG)
+        // Hàm này tự động tạo 'salt' và mã hóa an toàn
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        if (mysqli_num_rows($result_check) > 0) {
-            $message = '<div class="alert alert-warning">Tên người dùng **' . htmlspecialchars($username) . '** đã tồn tại.</div>';
+        // 4. Lưu vào Database
+        $sql = "INSERT INTO users (username, email, password_hash, role) 
+                VALUES ('$username', '$email', '$hashed_password', 'user')";
+
+        if (mysqli_query($link, $sql)) {
+            $msg = "<div class='alert alert-success'>Đăng ký thành công! <a href='login.php'>Đăng nhập ngay</a></div>";
         } else {
-                // Mã hóa mật khẩu bằng MD5
-                $hashed_password = md5($password);
-
-                // Kiểm tra xem bảng users có cột `role` hay không
-                $has_role = false;
-                $check_col = mysqli_query($link, "SHOW COLUMNS FROM users LIKE 'role'");
-                if ($check_col && mysqli_num_rows($check_col) > 0) {
-                    $has_role = true;
-                }
-
-                // Thêm người dùng mới — nếu có cột role thì chèn role='user', nếu không thì chèn 2 cột
-                if ($has_role) {
-                    $sql_insert = "INSERT INTO users (username, password, role) VALUES ('$username', '$hashed_password', 'user')";
-                } else {
-                    $sql_insert = "INSERT INTO users (username, password) VALUES ('$username', '$hashed_password')";
-                }
-
-                if (mysqli_query($link, $sql_insert)) {
-                $message = '<div class="alert alert-success">Đăng ký thành công! Bạn có thể <a href="login.php">Đăng nhập</a>.</div>';
-            } else {
-                $message = '<div class="alert alert-danger">Lỗi hệ thống: ' . mysqli_error($link) . '</div>';
-            }
+            $msg = "<div class='alert alert-danger'>Lỗi: " . mysqli_error($link) . "</div>";
         }
     }
 }
@@ -47,33 +35,28 @@ if (isset($_POST['register'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Register Basic (No Session)</title>
+    <title>Đăng ký</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        .wrapper { width: 360px; padding: 20px; margin: 50px auto; border: 1px solid #ccc; border-radius: 5px; }
-    </style>
 </head>
-<body>
-    <div class="wrapper">
-        <h2 class="mb-4">Đăng Ký Cơ Bản</h2>
-        
-        <?php echo $message; // Hiển thị thông báo ?>
-        
-        <form action="register.php" method="post">
-            <div class="form-group">
-                <label>Username</label>
-                <input type="text" name="username" class="form-control" value="<?php echo htmlspecialchars($username ?? ''); ?>" required>
-            </div>    
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-            
-            <button type="submit" name="register" class="btn btn-primary btn-block">Đăng Ký</button>
-
-            <p class="text-center mt-3">Đã có tài khoản? <a href="login.php">Đăng nhập</a>.</p>
-        </form>
-    </div>    
+<body class="container mt-5" style="max-width: 400px;">
+    <h3 class="text-center">Đăng Ký Tài Khoản</h3>
+    <?php echo $msg; ?>
+    
+    <form method="post">
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" name="username" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" name="password" class="form-control" required>
+        </div>
+        <button type="submit" name="register" class="btn btn-primary btn-block">Đăng Ký</button>
+        <p class="text-center mt-3">Đã có tài khoản? <a href="login.php">Đăng nhập</a></p>
+    </form>
 </body>
 </html>
