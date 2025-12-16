@@ -38,10 +38,10 @@ if (isset($_POST['login'])) {
             header("Location: index.php");
             exit;
         } else {
-            $msg = "Sai mật khẩu!";
+            $msg = "Incorrect password!";
         }
     } else {
-        $msg = "Tài khoản không tồn tại!";
+        $msg = "Account does not exist!";
     }
 }
 ?>
@@ -49,30 +49,30 @@ if (isset($_POST['login'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Đăng nhập</title>
+    <title>Log in</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body class="container mt-5" style="max-width: 400px;">
-    <h3 class="text-center">Đăng Nhập</h3>
+    <h3 class="text-center">Log in</h3>
     <?php if($msg) echo "<div class='alert alert-danger'>$msg</div>"; ?>
     
     <form method="post">
         <div class="form-group">
-            <label>Username hoặc Email</label>
+            <label>Username or Email</label>
             <input type="text" name="username" class="form-control" required>
         </div>
         <div class="form-group">
-            <label>Mật khẩu</label>
+            <label>Password</label>
             <input type="password" name="password" class="form-control" required>
         </div>
         
         <div class="form-group form-check">
             <input type="checkbox" name="remember" class="form-check-input" id="rem">
-            <label class="form-check-label" for="rem">Ghi nhớ đăng nhập</label>
+            <label class="form-check-label" for="rem">Remember</label>
         </div>
 
-        <button type="submit" name="login" class="btn btn-primary btn-block">Đăng Nhập</button>
-        <p class="text-center mt-3"><a href="register.php">Đăng ký tài khoản mới</a></p>
+        <button type="submit" name="login" class="btn btn-primary btn-block">Log in</button>
+        <p class="text-center mt-3"><a href="register.php">Sign up</a></p>
     </form>
 </body>
 </html>
