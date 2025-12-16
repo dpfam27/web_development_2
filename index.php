@@ -11,7 +11,7 @@ include 'header.php';
     <div class="container">
         <span class="promo-text">
             <i class="fas fa-gift mr-2"></i> 
-            WELCOME DEAL! Use code <span class="badge badge-light text-dark mx-1 p-1">SALE10</span> to get <strong>10% OFF</strong> your first order!
+            END-YEAR DEAL! Use code <span class="badge badge-light text-dark mx-1 p-1">SALE10</span> to get <strong>10% OFF</strong> every order!
         </span>
         <a href="products.php" class="btn btn-sm btn-outline-light ml-3">SHOP NOW</a>
     </div>
