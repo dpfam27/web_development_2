@@ -35,8 +35,8 @@ $result = mysqli_query($link, $sql);
 <body class="container mt-5">
     
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Đơn hàng của tôi</h2>
-        <a href="index.php" class="btn btn-outline-secondary">← Quay lại trang chủ</a>
+        <h2>My Orders</h2>
+        <a href="index.php" class="btn btn-outline-secondary">← Back to homepage</a>
     </div>
 
     <?php if (mysqli_num_rows($result) > 0): ?>
@@ -44,11 +44,11 @@ $result = mysqli_query($link, $sql);
             <table class="table table-bordered table-hover">
                 <thead class="thead-light">
                     <tr>
-                        <th>Mã đơn (#ID)</th>
-                        <th>Ngày đặt</th>
-                        <th>Tổng tiền</th>
-                        <th>Trạng thái</th>
-                        <th>Hành động</th>
+                        <th>Order ID (#ID)</th>
+                        <th>Order date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,12 +63,12 @@ $result = mysqli_query($link, $sql);
                                     <?php 
                                         // Map trạng thái sang tiếng Việt
                                         $status_map = [
-                                            'pending' => 'Chờ xử lý',
-                                            'paid' => 'Đã thanh toán',
-                                            'processing' => 'Đang xử lý',
-                                            'shipped' => 'Đang giao',
-                                            'completed' => 'Hoàn thành',
-                                            'cancelled' => 'Đã hủy'
+                                            'pending',
+                                            'paid',
+                                            'processing',
+                                            'shipped',
+                                            'completed',
+                                            'cancelled'
                                         ];
                                         echo $status_map[$row['status']] ?? ucfirst($row['status']);
                                     ?>
@@ -76,7 +76,7 @@ $result = mysqli_query($link, $sql);
                             </td>
                             
                             <td>
-                                <a href="order_details.php?order_id=<?php echo $row['order_id']; ?>" class="btn btn-info btn-sm">Xem chi tiết</a>
+                                <a href="order_details.php?order_id=<?php echo $row['order_id']; ?>" class="btn btn-info btn-sm">View details</a>
                             </td>
                         </tr>
                     <?php endwhile; ?>
@@ -85,8 +85,8 @@ $result = mysqli_query($link, $sql);
         </div>
     <?php else: ?>
         <div class="alert alert-warning text-center">
-            <h4>Bạn chưa có đơn hàng nào.</h4>
-            <p class="mt-3"><a href="index.php" class="btn btn-primary">Mua sắm ngay</a></p>
+            <h4>No order yet.</h4>
+            <p class="mt-3"><a href="index.php" class="btn btn-primary">Shopping now</a></p>
         </div>
     <?php endif; ?>
     
