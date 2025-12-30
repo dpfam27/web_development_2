@@ -1,6 +1,7 @@
 <?php
 include 'connect.php';
-include 'auth.php'; 
+include 'auth.php';
+include 'mailer.php'; // Include PHPMailer helper
 
 $page_title = "Contact Us - WheyStore";
 include 'header.php';
@@ -13,12 +14,34 @@ if (isset($_POST['send_message'])) {
     $subject = mysqli_real_escape_string($link, $_POST['subject']);
     $message = mysqli_real_escape_string($link, $_POST['message']);
 
-    $msg = "<div class='alert alert-success alert-dismissible fade show' role='alert'>
-                <strong>Thank you $name!</strong> Your message has been sent. We will respond shortly.
-                <button type='button' class='close' data-dismiss='alert' aria-label='Close'>
-                    <span aria-hidden='true'>&times;</span>
-                </button>
-            </div>";
+    // Gửi email tới support (email cá nhân)
+    $contact_sent = sendContactEmail($name, $email, $subject, $message);
+    
+    // Gửi email xác nhận tới khách
+    $confirmation_sent = sendContactConfirmationEmail($email, $name);
+
+    if ($contact_sent && $confirmation_sent) {
+        $msg = "<div class='alert alert-success alert-dismissible fade show' role='alert'>
+                    <strong>Thank you $name!</strong> Your message has been sent successfully. We will respond shortly. A confirmation email has been sent to your inbox.
+                    <button type='button' class='close' data-dismiss='alert' aria-label='Close'>
+                        <span aria-hidden='true'>&times;</span>
+                    </button>
+                </div>";
+    } elseif ($contact_sent) {
+        $msg = "<div class='alert alert-success alert-dismissible fade show' role='alert'>
+                    <strong>Thank you $name!</strong> Your message has been sent successfully. We will respond shortly.
+                    <button type='button' class='close' data-dismiss='alert' aria-label='Close'>
+                        <span aria-hidden='true'>&times;</span>
+                    </button>
+                </div>";
+    } else {
+        $msg = "<div class='alert alert-warning alert-dismissible fade show' role='alert'>
+                    <strong>Notice:</strong> Your message was processed but there was an issue sending email confirmations. We will still contact you.
+                    <button type='button' class='close' data-dismiss='alert' aria-label='Close'>
+                        <span aria-hidden='true'>&times;</span>
+                    </button>
+                </div>";
+    }
 }
 ?>
 

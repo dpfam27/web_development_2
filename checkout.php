@@ -1,11 +1,11 @@
 <?php
 include 'connect.php';
 include 'auth.php';
+include 'mailer.php'; // Include PHPMailer helper
 require_login();
 $user_id = $_SESSION['user_id'];
 
-// 1. Lấy dữ liệu giỏ hàng để tính toán
-// (Lặp lại query lấy giỏ hàng giống cart.php)
+// 1. Fetch cart data for calculation
 $check_cart = mysqli_query($link, "SELECT cart_id FROM carts WHERE user_id = $user_id");
 if (mysqli_num_rows($check_cart) == 0) { header("Location: index.php"); exit; }
 $c = mysqli_fetch_assoc($check_cart);
@@ -19,7 +19,7 @@ $sql_items = "SELECT ci.*, v.variant_name, v.price, p.name as prod_name
 $res_items = mysqli_query($link, $sql_items);
 if(mysqli_num_rows($res_items) == 0) { header("Location: cart.php"); exit; }
 
-// Tính Subtotal
+// Calculate Subtotal
 $items = [];
 $subtotal = 0;
 while($row = mysqli_fetch_assoc($res_items)) {
@@ -27,7 +27,7 @@ while($row = mysqli_fetch_assoc($res_items)) {
     $subtotal += ($row['price'] * $row['quantity']);
 }
 
-// 2. Xử lý Coupon
+// 2. Handle Coupon
 $discount = 0;
 $coupon_id = "NULL";
 $msg_coupon = "";
@@ -41,17 +41,17 @@ if (isset($_POST['apply_coupon'])) {
     if (mysqli_num_rows($res_cp) > 0) {
         $cp = mysqli_fetch_assoc($res_cp);
         if ($subtotal >= $cp['minimum_order_amount']) {
-            $_SESSION['coupon'] = $cp; // Lưu vào session
-            $msg_coupon = "<span class='text-success'>Áp dụng mã thành công!</span>";
+            $_SESSION['coupon'] = $cp; 
+            $msg_coupon = "<span class='text-success'>Coupon applied successfully!</span>";
         } else {
-            $msg_coupon = "<span class='text-danger'>Đơn hàng chưa đủ tối thiểu $".$cp['minimum_order_amount']."</span>";
+            $msg_coupon = "<span class='text-danger'>Minimum order amount of $".$cp['minimum_order_amount']." required.</span>";
         }
     } else {
-        $msg_coupon = "<span class='text-danger'>Mã không hợp lệ hoặc hết hạn!</span>";
+        $msg_coupon = "<span class='text-danger'>Invalid or expired coupon code!</span>";
     }
 }
 
-// Tính lại Total nếu có coupon
+// Recalculate Total if coupon exists
 if (isset($_SESSION['coupon'])) {
     $cp = $_SESSION['coupon'];
     $coupon_id = $cp['coupon_id'];
@@ -64,19 +64,17 @@ if (isset($_SESSION['coupon'])) {
 $final_total = $subtotal - $discount;
 if ($final_total < 0) $final_total = 0;
 
-// 3. XỬ LÝ ĐẶT HÀNG (Checkout)
+// 3. Handle Order Submission (Checkout)
 if (isset($_POST['checkout'])) {
     $address = mysqli_real_escape_string($link, $_POST['address']);
     $payment = mysqli_real_escape_string($link, $_POST['payment_method']);
 
-    // Insert Orders
     $sql_ord = "INSERT INTO orders (user_id, coupon_id, total_amount, shipping_address, payment_method, status) 
                 VALUES ($user_id, $coupon_id, $final_total, '$address', '$payment', 'pending')";
     
     if (mysqli_query($link, $sql_ord)) {
         $order_id = mysqli_insert_id($link);
 
-        // Insert Order Items
         foreach ($items as $item) {
             $vid = $item['variant_id'];
             $qty = $item['quantity'];
@@ -84,14 +82,24 @@ if (isset($_POST['checkout'])) {
             mysqli_query($link, "INSERT INTO order_items (order_id, variant_id, quantity, unit_price) VALUES ($order_id, $vid, $qty, $price)");
         }
 
-        // Xóa giỏ hàng & Coupon session
         mysqli_query($link, "DELETE FROM cart_items WHERE cart_id = $cart_id");
         unset($_SESSION['coupon']);
 
-        // Chuyển hướng cảm ơn
-        echo "<script>alert('Đặt hàng thành công! Mã đơn: #$order_id'); window.location='index.php';</script>";
+        $user_query = mysqli_query($link, "SELECT email, name FROM users WHERE user_id = $user_id");
+        if ($user_query && mysqli_num_rows($user_query) > 0) {
+            $user_data = mysqli_fetch_assoc($user_query);
+            $customer_email = $user_data['email'];
+            $customer_name = $user_data['name'];
+            
+            sendOrderConfirmationEmail($customer_email, $customer_name, $order_id, $final_total, $items);
+        }
+
+        echo "<script>
+                alert('Order placed successfully! Order ID: #$order_id\\n\\nA confirmation email has been sent to " . htmlspecialchars($customer_email) . "'); 
+                window.location='index.php';
+              </script>";
     } else {
-        echo "Lỗi: " . mysqli_error($link);
+        echo "Error: " . mysqli_error($link);
     }
 }
 ?>
@@ -99,32 +107,35 @@ if (isset($_POST['checkout'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Thanh toán</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body class="container mt-5">
-    <h2>Thanh toán</h2>
+    <h2 class="mb-4">Checkout</h2>
     <div class="row">
         <div class="col-md-6">
-            <h4>Thông tin giao hàng</h4>
+            <h4>Shipping Information</h4>
             <form method="post">
                 <div class="form-group">
-                    <label>Địa chỉ nhận hàng</label>
-                    <textarea name="address" class="form-control" required></textarea>
+                    <label>Shipping Address</label>
+                    <textarea name="address" class="form-control" rows="3" placeholder="Enter your full address..." required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Phương thức thanh toán</label>
+                    <label>Payment Method</label>
                     <select name="payment_method" class="form-control">
-                        <option value="COD">Thanh toán khi nhận hàng (COD)</option>
-                        <option value="Banking">Chuyển khoản ngân hàng</option>
+                        <option value="COD">Cash on Delivery (COD)</option>
+                        <option value="Banking">Bank Transfer</option>
                     </select>
                 </div>
-                <button type="submit" name="checkout" class="btn btn-success btn-lg btn-block">XÁC NHẬN ĐẶT HÀNG</button>
+                <button type="submit" name="checkout" class="btn btn-success btn-lg btn-block">PLACE ORDER</button>
             </form>
         </div>
+
         <div class="col-md-6">
             <div class="card bg-light p-3">
-                <h5>Đơn hàng của bạn</h5>
+                <h5>Your Order</h5>
                 <ul class="list-group list-group-flush mb-3">
                     <?php foreach($items as $item): ?>
                         <li class="list-group-item d-flex justify-content-between bg-light">
@@ -133,18 +144,30 @@ if (isset($_POST['checkout'])) {
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                <div class="d-flex justify-content-between"><span>Tạm tính:</span> <strong>$<?php echo number_format($subtotal, 2); ?></strong></div>
-                <div class="d-flex justify-content-between text-success"><span>Giảm giá:</span> <strong>-$<?php echo number_format($discount, 2); ?></strong></div>
+                
+                <div class="d-flex justify-content-between">
+                    <span>Subtotal:</span> 
+                    <strong>$<?php echo number_format($subtotal, 2); ?></strong>
+                </div>
+                <div class="d-flex justify-content-between text-success">
+                    <span>Discount:</span> 
+                    <strong>-$<?php echo number_format($discount, 2); ?></strong>
+                </div>
                 <hr>
-                <div class="d-flex justify-content-between h4"><span>Tổng cộng:</span> <strong class="text-danger">$<?php echo number_format($final_total, 2); ?></strong></div>
+                <div class="d-flex justify-content-between h4">
+                    <span>Total:</span> 
+                    <strong class="text-danger">$<?php echo number_format($final_total, 2); ?></strong>
+                </div>
 
                 <form method="post" class="mt-3 input-group">
-                    <input type="text" name="code" class="form-control" placeholder="Mã giảm giá">
+                    <input type="text" name="code" class="form-control" placeholder="Promo code">
                     <div class="input-group-append">
-                        <button type="submit" name="apply_coupon" class="btn btn-secondary">Áp dụng</button>
+                        <button type="submit" name="apply_coupon" class="btn btn-secondary">Apply</button>
                     </div>
                 </form>
-                <?php echo $msg_coupon; ?>
+                <div class="mt-2 small">
+                    <?php echo $msg_coupon; ?>
+                </div>
             </div>
         </div>
     </div>
