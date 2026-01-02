@@ -166,9 +166,10 @@ include 'header.php';
     <!-- REVIEWS SECTION - Chỉ hiện khi order completed -->
     <?php if ($order['status'] == 'completed' && !$is_admin): ?>
         <div class="card shadow-sm mt-4">
-            <div class="card-header bg-warning text-white">
-                <h5 class="mb-0"><i class="fas fa-star"></i> PRODUCT REVIEWS</h5>
-            </div>
+            <div class="card-header bg-dark text-white">
+            <i class="fas fa-star"></i> PRODUCT REVIEWS
+        </div>
+        <div class="card-body">
             <div class="card-body">
                 <?php
                 // Lấy danh sách sản phẩm trong đơn hàng
@@ -182,6 +183,40 @@ include 'header.php';
                     // Check đã review chưa
                     $check_review = mysqli_query($link, "SELECT * FROM product_reviews WHERE user_id = $current_user_id AND product_id = $product_id");
                     $existing_review = mysqli_fetch_assoc($check_review);
+                    
+                    // Handle review submission for this product
+                    $review_msg = "";
+                    if (isset($_POST['submit_review_' . $product_id])) {
+                        $rating = (int)$_POST['rating_' . $product_id];
+                        $text = mysqli_real_escape_string($link, $_POST['review_text_' . $product_id]);
+                        
+                        // Upload images
+                        $image_paths = [];
+                        if (isset($_FILES['review_images_' . $product_id]['tmp_name'])) {
+                            $upload_dir = "uploads/reviews/";
+                            if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
+                            
+                            foreach ($_FILES['review_images_' . $product_id]['tmp_name'] as $key => $tmp_name) {
+                                if ($_FILES['review_images_' . $product_id]['error'][$key] == 0 && count($image_paths) < 5) {
+                                    $filename = time() . "_" . $key . "_" . basename($_FILES['review_images_' . $product_id]['name'][$key]);
+                                    if (move_uploaded_file($tmp_name, $upload_dir . $filename)) {
+                                        $image_paths[] = $upload_dir . $filename;
+                                    }
+                                }
+                            }
+                        }
+                        $images_str = implode(',', $image_paths);
+                        
+                        if ($existing_review) {
+                            mysqli_query($link, "UPDATE product_reviews SET rating=$rating, review_text='$text', review_images='$images_str' WHERE review_id={$existing_review['review_id']}");
+                        } else {
+                            mysqli_query($link, "INSERT INTO product_reviews (product_id,user_id,rating,review_text,review_images) VALUES ($product_id,$current_user_id,$rating,'$text','$images_str')");
+                        }
+                        $review_msg = "<div class='alert alert-success'>Review submitted successfully!</div>";
+                        
+                        // Refresh to show updated review
+                        echo "<script>setTimeout(function(){ location.reload(); }, 1000);</script>";
+                    }
                 ?>
                     <div class="border rounded p-3 mb-3">
                         <div class="d-flex align-items-center mb-3">
@@ -192,23 +227,54 @@ include 'header.php';
                             </div>
                         </div>
                         
+                        <?php echo $review_msg; ?>
+                        
                         <?php if ($existing_review): ?>
-                            <!-- Đã review -->
+                            <!-- Đã review - Hiện review -->
                             <div class="alert alert-success">
-                                <i class="fas fa-check-circle"></i> You have reviewed this product
+                                <i class="fas fa-check-circle"></i> <strong>Your Review:</strong>
                                 <div class="mt-2">
-                                    <div class="stars" style="color: #ffc107;">
+                                    <div class="stars" style="color: #ffc107; font-size: 18px;">
                                         <?php for($i=1;$i<=5;$i++) echo ($i<=$existing_review['rating']) ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>'; ?>
                                     </div>
                                     <p class="mb-0 mt-2"><?php echo nl2br(htmlspecialchars($existing_review['review_text'])); ?></p>
+                                    <?php if(!empty($existing_review['review_images'])): ?>
+                                        <div class="mt-2">
+                                            <?php foreach(explode(',', $existing_review['review_images']) as $img): ?>
+                                                <img src="<?php echo $img; ?>" style="width:60px;height:60px;object-fit:cover;margin-right:5px;border-radius:5px;">
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
-                                <a href="product_detail.php?id=<?php echo $product_id; ?>" class="btn btn-sm btn-outline-primary mt-2">View Details</a>
+                                <a href="product_detail.php?id=<?php echo $product_id; ?>" class="btn btn-sm btn-outline-primary mt-2">View All Reviews</a>
                             </div>
                         <?php else: ?>
                             <!-- Chưa review - Hiện form -->
-                            <a href="product_detail.php?id=<?php echo $product_id; ?>#review-form" class="btn btn-warning btn-block">
-                                <i class="fas fa-star"></i> Write a Review
-                            </a>
+                            <form method="POST" enctype="multipart/form-data" class="review-form-inline">
+                                <input type="hidden" name="rating_<?php echo $product_id; ?>" id="rating-<?php echo $product_id; ?>" required>
+                                
+                                <label><strong>Rating *</strong></label>
+                                <div class="star-input-clickable mb-3" data-product="<?php echo $product_id; ?>" style="font-size: 24px; cursor: pointer;">
+                                    <?php for($i=1;$i<=5;$i++): ?>
+                                        <i class="star-icon far fa-star" data-rating="<?php echo $i; ?>"></i>
+                                    <?php endfor; ?>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label><strong>Your Review *</strong></label>
+                                    <textarea name="review_text_<?php echo $product_id; ?>" class="form-control" rows="3" required placeholder="Share your experience with this product..."></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label><strong>Product Images</strong></label>
+                                    <input type="file" name="review_images_<?php echo $product_id; ?>[]" class="form-control-file" accept="image/*" multiple>
+                                    <small class="text-muted">Select up to 5 images</small>
+                                </div>
+                                
+                                <button type="submit" name="submit_review_<?php echo $product_id; ?>" class="btn btn-warning">
+                                    <i class="fas fa-paper-plane"></i> Submit Review
+                                </button>
+                            </form>
                         <?php endif; ?>
                     </div>
                 <?php endwhile; ?>
@@ -227,5 +293,37 @@ include 'header.php';
     </div>
 
 </div>
+
+<script>
+// Star rating for multiple products
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.star-input-clickable').forEach(starContainer => {
+        const productId = starContainer.dataset.product;
+        const stars = starContainer.querySelectorAll('.star-icon');
+        const ratingInput = document.getElementById('rating-' + productId);
+        
+        stars.forEach(star => {
+            star.addEventListener('click', function() {
+                const rating = parseInt(this.dataset.rating);
+                ratingInput.value = rating;
+                stars.forEach((s, idx) => {
+                    s.classList.toggle('fas', idx < rating);
+                    s.classList.toggle('far', idx >= rating);
+                });
+            });
+            
+            star.addEventListener('mouseenter', function() {
+                const rating = parseInt(this.dataset.rating);
+                stars.forEach((s, idx) => s.style.color = (idx < rating) ? '#ffc107' : '#ddd');
+            });
+        });
+        
+        starContainer.addEventListener('mouseleave', function() {
+            const currentRating = parseInt(ratingInput.value) || 0;
+            stars.forEach((s, idx) => s.style.color = (idx < currentRating) ? '#ffc107' : '#ddd');
+        });
+    });
+});
+</script>
 
 <?php include 'footer.php'; ?>

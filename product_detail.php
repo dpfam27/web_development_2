@@ -126,4 +126,6 @@ include 'header.php';
     });
 </script>
 
+<?php include 'reviews.php'; ?>
+
 <?php include 'footer.php'; ?>
