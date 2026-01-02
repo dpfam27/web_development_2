@@ -116,6 +116,22 @@ VALUES (
     'admin'
 );
 
+-- 12. Bảng Product Reviews (Đánh giá sản phẩm - Giống Shopee)
+CREATE TABLE product_reviews (
+    review_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    review_text TEXT NOT NULL,
+    review_images TEXT NULL, -- Lưu nhiều ảnh (phân cách bằng dấu phẩy)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    INDEX idx_product (product_id),
+    INDEX idx_user (user_id)
+);
+
 -- (Tùy chọn) Thêm 1 Coupon mẫu để test
 INSERT INTO coupons (code, discount_type, value, start_date, end_date, minimum_order_amount)
 VALUES ('SALE10', 'percent', 10.00, '2025-12-01', '2026-01-31', 50.00);
