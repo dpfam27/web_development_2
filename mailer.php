@@ -4,16 +4,18 @@
  * Hàm gửi email cho khách và contact
  */
 
+// Import PHPMailer classes for SMTP configuration and exception handling
+// These classes handle the email sending functionality with secure connection
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require 'autoload.php'; // Require PHPMailer
-include 'mail_config.php';
+include 'mail_config.php'; // Load email configuration (SMTP credentials, email addresses)
 
 /**
  * Gửi email xác nhận đơn hàng cho khách
  * @param string $customer_email - Email của khách
- * @param string $customer_name - Tên của khách
+ * @param string $customer_name - Tên của khách+
  * @param int $order_id - ID của đơn hàng
  * @param float $total_amount - Tổng tiền
  * @param array $items - Danh sách sản phẩm
@@ -23,7 +25,9 @@ function sendOrderConfirmationEmail($customer_email, $customer_name, $order_id, 
     try {
         $mail = new PHPMailer(true);
 
-        // Server settings
+        // Configure SMTP server settings using Gmail credentials
+        // This establishes a secure TLS connection to send emails via Gmail
+        // All configuration values are defined in mail_config.php for easy management
         $mail->isSMTP();
         $mail->Host = MAIL_HOST;
         $mail->SMTPAuth = true;
@@ -33,15 +37,21 @@ function sendOrderConfirmationEmail($customer_email, $customer_name, $order_id, 
         $mail->Port = MAIL_PORT;
         $mail->CharSet = 'UTF-8';
 
-        // Recipients
+        // Set sender and recipient information
+        // setFrom() displays the store name, addAddress() sends to the customer
+        // The customer receives both the order confirmation and can view it on their account
         $mail->setFrom(MAIL_FROM_ADDRESS, MAIL_FROM_NAME);
         $mail->addAddress($customer_email, $customer_name);
 
-        // Content
+        // Configure email content as HTML with order confirmation subject
+        // HTML format allows for professional email template with styling and order details
         $mail->isHTML(true);
         $mail->Subject = 'Xác nhận đơn hàng #' . $order_id;
         
         // Build HTML email
+        // Build HTML table rows for ordered items with security measures
+        // htmlspecialchars() prevents XSS attacks by encoding special characters
+        // Each item includes product name, variant, quantity, price and total cost
         $items_html = '';
         foreach ($items as $item) {
             $items_html .= '
@@ -126,16 +136,21 @@ function sendOrderConfirmationEmail($customer_email, $customer_name, $order_id, 
         </body>
         </html>';
 
+        // Set both HTML and plain text versions of the email
+        // AltBody is for clients that don't support HTML, improving email compatibility
         $mail->Body = $html_body;
         $mail->AltBody = strip_tags(str_replace('<br>', "\n", $html_body));
 
+        // Send the email and return success/failure status
+        // Function completes without throwing exception even if sending fails
         if ($mail->send()) {
             return true;
         }
         return false;
 
     } catch (Exception $e) {
-        // Ghi log lỗi nhưng không dừng quy trình
+        // Log errors to file without stopping the process
+        // This prevents order confirmation failure from blocking the entire transaction
         error_log("Lỗi gửi email xác nhận: " . $mail->ErrorInfo);
         return false;
     }
@@ -153,7 +168,8 @@ function sendContactEmail($customer_name, $customer_email, $subject, $message) {
     try {
         $mail = new PHPMailer(true);
 
-        // Server settings
+        // Configure SMTP server for sending contact form submissions
+        // Contact emails are forwarded to the support team for handling customer inquiries
         $mail->isSMTP();
         $mail->Host = MAIL_HOST;
         $mail->SMTPAuth = true;
@@ -163,10 +179,12 @@ function sendContactEmail($customer_name, $customer_email, $subject, $message) {
         $mail->Port = MAIL_PORT;
         $mail->CharSet = 'UTF-8';
 
-        // Recipients - Gửi tới email support (email cá nhân)
+        // Set recipient as support team but allow reply directly to customer
+        // setFrom() shows the official brand, addAddress() sends to internal support team
+        // addReplyTo() ensures support staff can respond directly to the customer's email
         $mail->setFrom(MAIL_FROM_ADDRESS, MAIL_FROM_NAME);
-        $mail->addAddress(SUPPORT_EMAIL); // Gửi tới support email
-        $mail->addReplyTo($customer_email, $customer_name); // Reply tới customer
+        $mail->addAddress(SUPPORT_EMAIL); // Send to support email
+        $mail->addReplyTo($customer_email, $customer_name); // Reply to customer
 
         // Content
         $mail->isHTML(true);
@@ -237,7 +255,8 @@ function sendContactConfirmationEmail($customer_email, $customer_name) {
     try {
         $mail = new PHPMailer(true);
 
-        // Server settings
+        // Configure SMTP server for sending automatic confirmation to customers
+        // This acknowledges receipt of their inquiry and provides expected response time
         $mail->isSMTP();
         $mail->Host = MAIL_HOST;
         $mail->SMTPAuth = true;
@@ -247,11 +266,13 @@ function sendContactConfirmationEmail($customer_email, $customer_name) {
         $mail->Port = MAIL_PORT;
         $mail->CharSet = 'UTF-8';
 
-        // Recipients
+        // Set sender and send confirmation to customer's email address
+        // This provides immediate feedback that their message was successfully received
         $mail->setFrom(MAIL_FROM_ADDRESS, MAIL_FROM_NAME);
         $mail->addAddress($customer_email, $customer_name);
 
-        // Content
+        // Configure email content with automatic response subject
+        // This is a transactional email confirming receipt and providing support timeline
         $mail->isHTML(true);
         $mail->Subject = 'Chúng tôi đã nhận được tin nhắn của bạn - WheyStore';
 
